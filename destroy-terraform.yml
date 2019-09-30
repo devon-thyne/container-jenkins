@@ -1,0 +1,8 @@
+--- ##### playbook to install and run docker on remote host
+- hosts: all
+  become: yes
+  tasks:
+
+    - name: Destroy terraform cofiguration
+      command: bash /home/ec2-user/destroy-terraform.sh
+      ignore_errors: yes

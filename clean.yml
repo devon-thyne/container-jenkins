@@ -1,0 +1,51 @@
+--- ##### playbook to clean host machine
+- hosts: all
+  become: yes
+  tasks:
+   
+    - name: Delete old directory jenkins_home on host if exists
+      file:
+        path: /home/ec2-user/jenkins_home
+        state: absent
+      ignore_errors: yes
+
+    - name: Delete old directory for docker container on host if exists
+      file:
+        path: /home/ec2-user/jenkins-master
+        state: absent
+      ignore_errors: yes
+
+    - name: Delete Terraform zip on host if exists
+      file:
+        path: /home/ec2-user/terraform_0.12.2_linux_amd64.zip
+        state: absent
+      ignore_errors: yes
+
+    - name: Delete wait-for-init.sh on host if exists
+      file:
+        path: /home/ec2-user/wait-for-init.sh
+        state: absent
+      ignore_errors: yes
+
+    - name: Delete jenkins-admin-password.txt on host if exists
+      file:
+        path: /home/ec2-user/jenkins-admin-password.txt
+        state: absent
+      ignore_errors: yes
+
+    - name: Delete get-admin-password.sh on host if exists
+      file:
+        path: /home/ec2-user/get-admin-password.sh
+        state: absent
+      ignore_errors: yes
+
+    - name: Delete destroy-terraform.sh on host if exists
+      file:
+        path: /home/ec2-user/destroy-terraform.sh
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove existing docker container on host if exists
+      command: docker container rm -f jenkins-master
+      ignore_errors: yes
+

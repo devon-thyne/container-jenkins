@@ -1,0 +1,138 @@
+--- ##### playbook to configure host machine for use in intern-project-big-bad-one
+- hosts: all
+  become: yes
+  tasks:
+   
+    ##### Setup for docker container
+
+    - name: Delete old directory jenkins_home on host if exists
+      file:
+        path: /home/ec2-user/jenkins_home
+        state: absent
+      ignore_errors: yes
+
+    - name: Make a directory for jenkins_home
+      file:
+        path: /home/ec2-user/jenkins_home
+        state: directory
+
+    - name: Delete old directory for docker container on host if exists
+      file:
+        path: /home/ec2-user/jenkins-master
+        state: absent
+      ignore_errors: yes
+
+    - name: Make directory for docker container on host
+      file:
+        path: /home/ec2-user/jenkins-master
+        state: directory
+
+
+    ##### Copy necessary files to host
+
+    - name: Copy Dockerfile to host
+      copy:
+        src: Dockerfile
+        dest: /home/ec2-user/jenkins-master
+
+    - name: Download Terraform onto host
+      get_url:
+        url: https://releases.hashicorp.com/terraform/0.12.2/terraform_0.12.2_linux_amd64.zip
+        dest: /home/ec2-user/terraform_0.12.2_linux_amd64.zip 
+
+    - name: Unzip Terraform on host
+      unarchive:
+        src: /home/ec2-user/terraform_0.12.2_linux_amd64.zip
+        dest: /home/ec2-user/jenkins-master
+        remote_src: yes
+
+    - name: List terraform .tf files to be transferred
+      debug: msg={{ lookup('fileglob', '../*.tf') }}
+
+    - name: List terraform .tfvars files to be transferred
+      debug: msg={{ lookup('fileglob', '../*.tfvars') }}
+
+    - name: Make directory for terraform files
+      file:
+       path: /home/ec2-user/jenkins-master/terraform-configuration
+       state: directory
+
+    - name: Copy terraform .tf files to host
+      copy:
+        src: "{{ item }}"
+        dest: /home/ec2-user/jenkins-master/terraform-configuration
+      with_fileglob:
+        - "../*.tf"
+
+    - name: Copy terraform .tfvars files to host
+      copy:
+        src: "{{ item }}"
+        dest: /home/ec2-user/jenkins-master/terraform-configuration
+      with_fileglob:
+        - "../*.tfvars"
+
+    - name: List test scripts to be transferred
+      debug: msg={{ lookup('fileglob', '../tests/*.sh') }}
+
+    - name: Make directory for test scripts
+      file:
+       path: /home/ec2-user/jenkins-master/tests
+       state: directory
+
+    - name: Copy test scripts to host
+      copy:
+        src: "{{ item }}"
+        dest: /home/ec2-user/jenkins-master/tests
+      with_fileglob:
+        - "../tests/*.sh"
+
+    - name: Copy script to help host wait for jenkins server initialization
+      copy:
+        src: wait-for-init.sh
+        dest: /home/ec2-user
+
+    - name: Copy Jenkins pipeline execution script to host
+      copy:
+        src: execute-pipeline.sh
+        dest: /home/ec2-user/jenkins-master
+
+    - name: Copy admin password grabber script to host
+      copy:
+        src: get-admin-password.sh
+        dest: /home/ec2-user
+
+    - name: Copy terraform destroy script to host
+      copy:
+        src: destroy-terraform.sh
+        dest: /home/ec2-user
+
+
+    ##### Run docker container
+
+    - name: Remove existing docker container on host if exists
+      command: docker container rm -f jenkins-master
+      ignore_errors: yes
+
+    - name: Build docker container on host
+      command: docker build -t jenkins-master /home/ec2-user/jenkins-master
+
+    - name: Run docker containter on host
+      command: docker run -u root --rm -d -p 8080:8080 -p 50000:50000 -v /home/ec2-user/jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock --name jenkins-master jenkins-master
+
+
+    ##### Execute Jenkins pipeline
+
+    - name: Execute script to wait for jenkins server initialization then execute pipeline in container
+      command: bash /home/ec2-user/wait-for-init.sh
+
+
+    ##### Grab and dump jenkins admin password for client to use to login to see pipeline execution
+    
+    - name: Save Jenkins server admin password on host
+      command: bash /home/ec2-user/get-admin-password.sh
+
+    - name: Copy Jenkins server admin password from remote host
+      fetch:
+        src: /home/ec2-user/jenkins-admin-password.txt
+        dest: ./
+        flat: yes
